@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* Cores oficiais IFCO (Verde Corporativo) */
         .bg-ifco { background-color: #00A352; }
         .bg-ifco-dark { background-color: #008242; }
         .text-ifco { color: #00A352; }
@@ -103,7 +102,6 @@
             <div id="op-step-1" class="bg-white p-5 rounded-2xl shadow-sm space-y-4">
                 <h3 class="font-bold text-ifco text-xs uppercase tracking-wider">1. Iniciar Separação</h3>
                 
-                <!-- Opção 1: Escanear / Digitar -->
                 <div class="space-y-2">
                     <label class="text-xs font-semibold text-slate-500 uppercase">Escanear com a câmera / Scanner:</label>
                     <div class="flex gap-2">
@@ -120,10 +118,9 @@
                     <div class="flex-grow border-t border-slate-200"></div>
                 </div>
 
-                <!-- Opção 2: Lista de Fila Pronta -->
                 <div class="space-y-2">
                     <div id="lista-fila-operador" class="space-y-2 max-h-52 overflow-y-auto pr-1">
-                        <!-- Preenchido via JS -->
+                        <div class="p-3.5 bg-slate-50 border rounded-xl text-center text-xs text-slate-400">Carregando fila da nuvem...</div>
                     </div>
                 </div>
             </div>
@@ -159,7 +156,6 @@
                     <p class="text-sm text-slate-500 mt-1">Por favor, entregue o celular para o cliente avaliar:</p>
                 </div>
 
-                <!-- Pergunta 1 -->
                 <div class="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200/60">
                     <label class="font-semibold text-sm text-slate-700 block">1. Tempo de Espera</label>
                     <div class="flex justify-center gap-3 text-3xl text-amber-400 cursor-pointer" id="stars-tempo">
@@ -169,7 +165,6 @@
                     </div>
                 </div>
 
-                <!-- Pergunta 2 -->
                 <div class="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200/60">
                     <label class="font-semibold text-sm text-slate-700 block">2. Satisfação com o Atendimento</label>
                     <div class="flex justify-center gap-3 text-3xl text-amber-400 cursor-pointer" id="stars-satisfacao">
@@ -189,10 +184,10 @@
         <div id="screen-dashboard" class="hidden space-y-4">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base text-slate-700 flex items-center gap-2">
-                    <i class="fa-solid fa-table text-ifco text-lg"></i> Relatório de Atendimentos
+                    <i class="fa-solid fa-table text-ifco text-lg"></i> Relatório de Atendimentos (Google Sheets)
                 </h2>
                 <div class="flex gap-2">
-                    <button onclick="exportarCSV()" class="text-xs bg-ifco hover:bg-ifco-dark text-white px-3 py-2 rounded-lg font-medium shadow-sm transition"><i class="fa-solid fa-download"></i> Baixar CSV</button>
+                    <button onclick="carregarDadosPlanilha()" class="text-xs bg-slate-700 hover:bg-slate-800 text-white px-3 py-2 rounded-lg font-medium shadow-sm transition"><i class="fa-solid fa-rotate"></i> Atualizar</button>
                     <button onclick="goHome()" class="text-xs bg-slate-200 hover:bg-slate-300 px-3 py-2 rounded-lg font-medium transition"><i class="fa-solid fa-arrow-left"></i> Voltar</button>
                 </div>
             </div>
@@ -203,7 +198,7 @@
                         <tr class="bg-slate-100 border-b text-slate-700">
                             <th class="p-3">Pedido</th>
                             <th class="p-3">NF</th>
-                            <th class="p-3">Chegada/Início</th>
+                            <th class="p-3">Chegada</th>
                             <th class="p-3">Fim Faturamento</th>
                             <th class="p-3">Início Separação</th>
                             <th class="p-3">Fim Carregamento</th>
@@ -213,7 +208,7 @@
                         </tr>
                     </thead>
                     <tbody id="tabela-dados" class="divide-y text-slate-700">
-                        <!-- Inserido via JS -->
+                        <tr><td colspan="9" class="p-4 text-center text-slate-400">Carregando dados da planilha...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -222,6 +217,9 @@
     </main>
 
     <script>
+        // ⚠️ COLE A SUA URL DO GOOGLE APPS SCRIPT ABAIXO ENTRE AS ASPAS ⚠️
+        const URL_GOOGLE_SHEETS = "https://teams.microsoft.com/l/message/48:notes/1794596552273?context=%7B%22contextType%22%3A%22chat%22%2C%22oid%22%3A%228%3Aorgid%3A4cb95929-c210-46e1-ab02-389a13adedc4%22%7D";
+
         let atendimentoAtual = {
             id: '',
             nf: '',
@@ -233,12 +231,11 @@
             nota_satisfacao: 3
         };
 
-        let filaFaturados = JSON.parse(localStorage.getItem('ifco_fila')) || [];
-        let registros = JSON.parse(localStorage.getItem('ifco_atendimentos')) || [];
+        let filaFaturados = [];
+        let registrosPlanilha = [];
 
         function solicitarSenhaDashboard() {
             let senha = prompt("Área Restrita. Digite a senha de acesso à planilha:");
-            // Senha padrão configurada como ifco2026 (você pode alterar aqui)
             if (senha === "ifco2026") {
                 showDashboard();
             } else if (senha !== null) {
@@ -264,7 +261,7 @@
                 document.getElementById('screen-operador').classList.remove('hidden');
                 document.getElementById('op-step-1').classList.remove('hidden');
                 document.getElementById('op-step-2').classList.add('hidden');
-                carregarFilaOperador();
+                sincronizarFilaOperador();
             }
         }
 
@@ -286,10 +283,9 @@
                 return;
             }
             atendimentoAtual.id = pedido;
-            atendimentoAtual.t_inicio = new Date();
+            atendimentoAtual.t_inicio = new Date().toISOString();
 
             document.getElementById('lbl-fat-pedido').innerText = pedido;
-
             document.getElementById('fat-step-1').classList.add('hidden');
             document.getElementById('fat-step-2').classList.remove('hidden');
             
@@ -308,10 +304,10 @@
                 return;
             }
             atendimentoAtual.nf = nf;
-            atendimentoAtual.t_fim_fat = new Date();
+            atendimentoAtual.t_fim_fat = new Date().toISOString();
 
+            // Salva provisoriamente na fila local para transição imediata
             filaFaturados.push({...atendimentoAtual});
-            localStorage.setItem('ifco_fila', JSON.stringify(filaFaturados));
 
             alert('NF registrada com sucesso! Pedido enviado para a expedição.');
             
@@ -325,7 +321,25 @@
         }
 
         // Operador Logístico Ações
-        function carregarFilaOperador() {
+        async function sincronizarFilaOperador() {
+            let container = document.getElementById('lista-fila-operador');
+            container.innerHTML = `<div class="p-3.5 bg-slate-50 border rounded-xl text-center text-xs text-slate-400"><i class="fa-solid fa-spinner fa-spin"></i> Sincronizando com o Google Sheets...</div>`;
+
+            try {
+                let response = await fetch(URL_GOOGLE_SHEETS);
+                let dados = await response.json();
+                
+                // Filtra o que ainda não foi concluído (sem fim_carregamento)
+                filaFaturados = dados.filter(item => !item.t_fim_carga && item.nf);
+                
+                renderizarFilaOperador();
+            } catch (error) {
+                console.error("Erro ao buscar fila:", error);
+                container.innerHTML = `<div class="p-3.5 bg-red-50 border border-red-200 rounded-xl text-center text-xs text-red-600">Erro ao carregar fila da nuvem. Verifique a URL do Script.</div>`;
+            }
+        }
+
+        function renderizarFilaOperador() {
             let container = document.getElementById('lista-fila-operador');
             container.innerHTML = '';
 
@@ -341,7 +355,7 @@
                             <span class="font-bold text-emerald-950 block text-sm font-mono">Pedido: ${item.id}</span>
                             <span class="text-xs text-slate-600 font-mono">NF: ${item.nf}</span>
                         </div>
-                        <button onclick="selecionarPedidoFila(${index})" class="bg-ifco hover:bg-ifco-dark text-white text-xs font-bold px-3.5 py-2.5 rounded-lg transition shadow-sm">
+                        <button onclick='selecionarPedidoFila(${JSON.stringify(item)})' class="bg-ifco hover:bg-ifco-dark text-white text-xs font-bold px-3.5 py-2.5 rounded-lg transition shadow-sm">
                             Iniciar Separação <i class="fa-solid fa-arrow-right ml-1"></i>
                         </button>
                     </div>
@@ -349,13 +363,9 @@
             });
         }
 
-        function selecionarPedidoFila(index) {
-            let item = filaFaturados.splice(index, 1)[0];
-            localStorage.setItem('ifco_fila', JSON.stringify(filaFaturados));
-
+        function selecionarPedidoFila(item) {
             atendimentoAtual = item;
-            atendimentoAtual.t_inicio_sep = new Date();
-
+            atendimentoAtual.t_inicio_sep = new Date().toISOString();
             iniciarPassoDoisOperador();
         }
 
@@ -366,15 +376,15 @@
                 return;
             }
 
-            let index = filaFaturados.findIndex(i => i.id === pedidoInput);
-            if(index !== -1) {
-                selecionarPedidoFila(index);
+            let encontrado = filaFaturados.find(i => i.id === pedidoInput);
+            if(encontrado) {
+                selecionarPedidoFila(encontrado);
             } else {
                 atendimentoAtual.id = pedidoInput;
                 atendimentoAtual.nf = "NF-Avulsa";
-                atendimentoAtual.t_inicio = new Date();
-                atendimentoAtual.t_fim_fat = new Date();
-                atendimentoAtual.t_inicio_sep = new Date();
+                atendimentoAtual.t_inicio = new Date().toISOString();
+                atendimentoAtual.t_fim_fat = new Date().toISOString();
+                atendimentoAtual.t_inicio_sep = new Date().toISOString();
                 iniciarPassoDoisOperador();
             }
         }
@@ -388,7 +398,7 @@
         }
 
         function operadorFinalizarCarga() {
-            atendimentoAtual.t_fim_carga = new Date();
+            atendimentoAtual.t_fim_carga = new Date().toISOString();
 
             document.getElementById('screen-operador').classList.add('hidden');
             document.getElementById('screen-avaliacao').classList.remove('hidden');
@@ -408,11 +418,26 @@
             }
         }
 
-        function salvarAtendimentoCompleto() {
-            registros.push({...atendimentoAtual});
-            localStorage.setItem('ifco_atendimentos', JSON.stringify(registros));
-            
-            alert('Atendimento concluído e avaliado com sucesso!');
+        async function salvarAtendimentoCompleto() {
+            // Envia para o Google Sheets via POST
+            try {
+                let payload = {
+                    action: "salvar",
+                    ...atendimentoAtual
+                };
+
+                await fetch(URL_GOOGLE_SHEETS, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                alert('Atendimento concluído, avaliado e salvo direto na Planilha Google!');
+            } catch (e) {
+                console.error(e);
+                alert('Erro ao sincronizar com a planilha, mas o atendimento foi concluído.');
+            }
             
             atendimentoAtual = { id: '', nf: '', t_inicio: null, t_fim_fat: null, t_inicio_sep: null, t_fim_carga: null, nota_tempo: 3, nota_satisfacao: 3 };
             document.getElementById('op-input-pedido').value = '';
@@ -420,55 +445,69 @@
             goHome();
         }
 
-        // Dashboard & Relatório
-        function showDashboard() {
+        // Dashboard & Relatório via Planilha
+        async function showDashboard() {
             document.getElementById('screen-home').classList.add('hidden');
             document.getElementById('screen-dashboard').classList.remove('hidden');
             document.getElementById('role-badge').innerText = 'Relatório';
 
+            await carregarDadosPlanilha();
+        }
+
+        async function carregarDadosPlanilha() {
             let tbody = document.getElementById('tabela-dados');
-            tbody.innerHTML = '';
+            tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin"></i> Carregando dados da planilha...</td></tr>`;
 
-            if(registros.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-slate-400">Nenhum atendimento registrado ainda.</td></tr>`;
-                return;
-            }
-
-            registros.forEach(r => {
-                let t1 = r.t_inicio ? new Date(r.t_inicio).toLocaleTimeString() : '-';
-                let t2 = r.t_fim_fat ? new Date(r.t_fim_fat).toLocaleTimeString() : '-';
-                let t3 = r.t_inicio_sep ? new Date(r.t_inicio_sep).toLocaleTimeString() : '-';
-                let t4 = r.t_fim_carga ? new Date(r.t_fim_carga).toLocaleTimeString() : '-';
+            try {
+                let response = await fetch(URL_GOOGLE_SHEETS);
+                registrosPlanilha = await response.json();
                 
-                let tempoTotal = '-';
-                if(r.t_inicio && r.t_fim_carga) {
-                    let diff = Math.round((new Date(r.t_fim_carga) - new Date(r.t_inicio)) / 60000);
-                    tempoTotal = diff + ' min';
+                tbody.innerHTML = '';
+
+                if(registrosPlanilha.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-slate-400">Nenhum atendimento registrado na planilha ainda.</td></tr>`;
+                    return;
                 }
 
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-50">
-                        <td class="p-3 font-semibold font-mono">${r.id || '-'}</td>
-                        <td class="p-3 font-mono text-emerald-800">${r.nf || '-'}</td>
-                        <td class="p-3 text-slate-500">${t1}</td>
-                        <td class="p-3 text-slate-500">${t2}</td>
-                        <td class="p-3 text-slate-500">${t3}</td>
-                        <td class="p-3 text-slate-500">${t4}</td>
-                        <td class="p-3 text-center font-bold text-slate-700">${tempoTotal}</td>
-                        <td class="p-3 text-center text-amber-500">${r.nota_tempo} ★</td>
-                        <td class="p-3 text-center text-amber-500">${r.nota_satisfacao} ★</td>
-                    </tr>
-                `;
-            });
+                registrosPlanilha.forEach(r => {
+                    let t1 = r.t_inicio ? new Date(r.t_inicio).toLocaleTimeString() : '-';
+                    let t2 = r.t_fim_fat ? new Date(r.t_fim_fat).toLocaleTimeString() : '-';
+                    let t3 = r.t_inicio_sep ? new Date(r.t_inicio_sep).toLocaleTimeString() : '-';
+                    let t4 = r.t_fim_carga ? new Date(r.t_fim_carga).toLocaleTimeString() : '-';
+                    
+                    let tempoTotal = '-';
+                    if(r.t_inicio && r.t_fim_carga) {
+                        let diff = Math.round((new Date(r.t_fim_carga) - new Date(r.t_inicio)) / 60000);
+                        tempoTotal = diff + ' min';
+                    }
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-3 font-semibold font-mono">${r.id || '-'}</td>
+                            <td class="p-3 font-mono text-emerald-800">${r.nf || '-'}</td>
+                            <td class="p-3 text-slate-500">${t1}</td>
+                            <td class="p-3 text-slate-500">${t2}</td>
+                            <td class="p-3 text-slate-500">${t3}</td>
+                            <td class="p-3 text-slate-500">${t4}</td>
+                            <td class="p-3 text-center font-bold text-slate-700">${tempoTotal}</td>
+                            <td class="p-3 text-center text-amber-500">${r.nota_tempo} ★</td>
+                            <td class="p-3 text-center text-amber-500">${r.nota_satisfacao} ★</td>
+                        </tr>
+                    `;
+                });
+            } catch (e) {
+                console.error(e);
+                tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-red-500">Erro ao carregar dados da planilha. Verifique a URL.</td></tr>`;
+            }
         }
 
         function exportarCSV() {
-            if(registros.length === 0) {
-                alert('Não há dados para exportar!');
+            if(registrosPlanilha.length === 0) {
+                alert('Não há dados carregados para exportar!');
                 return;
             }
             let csv = "ID_Pedido,NF,Chegada,Fim_Faturamento,Inicio_Separacao,Fim_Carregamento,Nota_Tempo,Nota_Satisfacao\n";
-            registros.forEach(r => {
+            registrosPlanilha.forEach(r => {
                 csv += `"${r.id}","${r.nf}","${r.t_inicio || ''}","${r.t_fim_fat || ''}","${r.t_inicio_sep || ''}","${r.t_fim_carga || ''}",${r.nota_tempo},${r.nota_satisfacao}\n`;
             });
 
@@ -476,7 +515,7 @@
             let url = URL.createObjectURL(blob);
             let a = document.createElement('a');
             a.href = url;
-            a.download = 'dados_atendimento_expedicao.csv';
+            a.download = 'dados_atendimento_expedicao_ifco.csv';
             a.click();
         }
     </script>
