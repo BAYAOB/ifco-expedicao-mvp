@@ -217,7 +217,7 @@
     </main>
 
     <script>
-        // ⚠️ COLE A SUA URL DO GOOGLE APPS SCRIPT ABAIXO ENTRE AS ASPAS ⚠️
+        // URL do Google Apps Script já integrada
         const URL_GOOGLE_SHEETS = "https://script.google.com/macros/s/AKfycbwjSMvlTD4hshW4Q1rQSuTC7fD_2yJ44xghP9mIlQFDmegfwlGIZ6MYnXaNnVMmjvbo/exec";
 
         let atendimentoAtual = {
@@ -306,7 +306,6 @@
             atendimentoAtual.nf = nf;
             atendimentoAtual.t_fim_fat = new Date().toISOString();
 
-            // Salva provisoriamente na fila local para transição imediata
             filaFaturados.push({...atendimentoAtual});
 
             alert('NF registrada com sucesso! Pedido enviado para a expedição.');
@@ -329,13 +328,12 @@
                 let response = await fetch(URL_GOOGLE_SHEETS);
                 let dados = await response.json();
                 
-                // Filtra o que ainda não foi concluído (sem fim_carregamento)
                 filaFaturados = dados.filter(item => !item.t_fim_carga && item.nf);
                 
                 renderizarFilaOperador();
             } catch (error) {
                 console.error("Erro ao buscar fila:", error);
-                container.innerHTML = `<div class="p-3.5 bg-red-50 border border-red-200 rounded-xl text-center text-xs text-red-600">Erro ao carregar fila da nuvem. Verifique a URL do Script.</div>`;
+                container.innerHTML = `<div class="p-3.5 bg-red-50 border border-red-200 rounded-xl text-center text-xs text-red-600">Erro ao carregar fila da nuvem. Verifique se publicou o Web App como 'Qualquer um'.</div>`;
             }
         }
 
@@ -419,7 +417,6 @@
         }
 
         async function salvarAtendimentoCompleto() {
-            // Envia para o Google Sheets via POST
             try {
                 let payload = {
                     action: "salvar",
@@ -497,7 +494,7 @@
                 });
             } catch (e) {
                 console.error(e);
-                tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-red-500">Erro ao carregar dados da planilha. Verifique a URL.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-red-500">Erro ao carregar dados da planilha. Verifique a URL ou permissões do Apps Script.</td></tr>`;
             }
         }
 
