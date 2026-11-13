@@ -6,6 +6,7 @@
     <title>Expedição IFCO - Controle de Atendimento</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <style>
         .bg-ifco { background-color: #00A352; }
         .bg-ifco-dark { background-color: #008242; }
@@ -84,7 +85,7 @@
                     <input type="text" id="fat-nf" placeholder="Escaneie ou digite a NF gerada..." class="w-full p-4 text-lg border-2 border-emerald-500 rounded-xl focus:ring-2 focus:ring-emerald-600 outline-none font-mono bg-emerald-50/20">
                 </div>
                 <button onclick="faturistaConcluirNF()" class="w-full bg-ifco hover:bg-ifco-dark text-white font-bold p-4 rounded-xl transition text-base shadow-md">
-                    Finalizar NF e Liberar para Expedição <i class="fa-solid fa-check ml-1"></i>
+                    Finalizar NF e Enviar para Fila <i class="fa-solid fa-cloud-arrow-up ml-1"></i>
                 </button>
             </div>
         </div>
@@ -95,30 +96,47 @@
                 <h2 class="font-bold text-base text-slate-700 flex items-center gap-2">
                     <i class="fa-solid fa-forklift text-ifco text-lg"></i> Painel do Operador Logístico
                 </h2>
-                <button onclick="goHome()" class="text-xs bg-slate-200 hover:bg-slate-300 px-3 py-1.5 rounded-lg font-medium transition"><i class="fa-solid fa-arrow-left"></i> Voltar</button>
+                <div class="flex gap-2">
+                    <button onclick="sincronizarFilaOperador()" class="text-xs bg-slate-200 hover:bg-slate-300 px-3 py-1.5 rounded-lg font-medium transition"><i class="fa-solid fa-rotate"></i> Atualizar Fila</button>
+                    <button onclick="goHome()" class="text-xs bg-slate-200 hover:bg-slate-300 px-3 py-1.5 rounded-lg font-medium transition"><i class="fa-solid fa-arrow-left"></i> Voltar</button>
+                </div>
             </div>
 
-            <!-- Passo A: Ler QR Code ou Selecionar da Fila -->
+            <!-- As 3 Opções do Operador -->
             <div id="op-step-1" class="bg-white p-5 rounded-2xl shadow-sm space-y-4">
-                <h3 class="font-bold text-ifco text-xs uppercase tracking-wider">1. Iniciar Separação</h3>
+                <h3 class="font-bold text-ifco text-xs uppercase tracking-wider">1. Selecionar Pedido para Separação</h3>
                 
+                <!-- OPÇÃO A: CÂMERA QR CODE -->
+                <div class="bg-emerald-50/70 border border-emerald-200 p-4 rounded-xl space-y-3">
+                    <label class="text-xs font-bold text-emerald-900 uppercase flex items-center gap-1.5">
+                        <i class="fa-solid fa-camera text-ifco"></i> Opção A: Ler QR Code com a Câmera
+                    </label>
+                    <button onclick="abrirLeitorCamera()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl transition text-sm shadow-sm flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-qrcode"></i> Abrir Leitor de QR Code
+                    </button>
+                    <div id="reader" class="w-full rounded-xl overflow-hidden hidden"></div>
+                </div>
+
+                <!-- OPÇÃO B: DIGITAÇÃO MANUAL -->
                 <div class="space-y-2">
-                    <label class="text-xs font-semibold text-slate-500 uppercase">Escanear com a câmera / Scanner:</label>
+                    <label class="text-xs font-bold text-slate-600 uppercase">Opção B: Digitação Manual ou Scanner Físico</label>
                     <div class="flex gap-2">
                         <input type="text" id="op-input-pedido" placeholder="Número do pedido..." class="w-full p-3.5 border-2 border-emerald-400 rounded-xl focus:ring-2 focus:ring-emerald-600 outline-none font-mono text-base bg-emerald-50/10">
-                        <button onclick="operadorIniciarSeparacao()" class="bg-ifco hover:bg-ifco-dark text-white font-bold px-5 rounded-xl transition shadow-sm">
-                            <i class="fa-solid fa-barcode"></i> Puxar
+                        <button onclick="operadorIniciarSeparacaoManual()" class="bg-ifco hover:bg-ifco-dark text-white font-bold px-5 rounded-xl transition shadow-sm">
+                            <i class="fa-solid fa-arrow-right"></i> Puxar
                         </button>
                     </div>
                 </div>
 
                 <div class="relative flex py-1 items-center">
                     <div class="flex-grow border-t border-slate-200"></div>
-                    <span class="flex-shrink mx-4 text-slate-400 text-xs uppercase font-medium">Ou selecione da fila faturada</span>
+                    <span class="flex-shrink mx-4 text-slate-400 text-xs uppercase font-medium">Ou selecione da fila abaixo</span>
                     <div class="flex-grow border-t border-slate-200"></div>
                 </div>
 
+                <!-- OPÇÃO C: LISTA DA PLANILHA (AGUARDANDO SEPARAÇÃO) -->
                 <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-600 uppercase">Opção C: Pedidos Aguardando Separação (Nuvem)</label>
                     <div id="lista-fila-operador" class="space-y-2 max-h-52 overflow-y-auto pr-1">
                         <div class="p-3.5 bg-slate-50 border rounded-xl text-center text-xs text-slate-400">Carregando fila da nuvem...</div>
                     </div>
@@ -128,7 +146,7 @@
             <!-- Passo B: Concluir Carregamento e Tirar Foto -->
             <div id="op-step-2" class="hidden bg-white p-5 rounded-2xl shadow-sm space-y-3 border-2 border-emerald-200">
                 <div class="bg-emerald-50 p-3 rounded-xl text-xs text-emerald-900 flex justify-between items-center border border-emerald-200">
-                    <span>Pedido em Separação: <strong id="lbl-op-pedido" class="text-sm font-mono text-ifco"></strong></span>
+                    <span>Separando Pedido: <strong id="lbl-op-pedido" class="text-sm font-mono text-ifco"></strong></span>
                     <span class="font-mono bg-emerald-200 px-2 py-0.5 rounded text-emerald-900">NF: <span id="lbl-op-nf"></span></span>
                 </div>
                 <h3 class="font-bold text-ifco text-xs uppercase tracking-wider">2. Finalizar Carregamento</h3>
@@ -174,7 +192,7 @@
                     </div>
                 </div>
 
-                <button onclick="salvarAtendimentoCompleto()" class="w-full bg-ifco hover:bg-ifco-dark text-white font-bold p-4 rounded-xl transition shadow-md text-base">
+                <button onclick="salvarAtendimentoCompleto()" class="w-full bg-ifco hover:bg-ifco-dark text-white font-bold p-4 rounded-xl transition text-base shadow-md">
                     Enviar Avaliação & Concluir <i class="fa-solid fa-check ml-1"></i>
                 </button>
             </div>
@@ -198,6 +216,7 @@
                         <tr class="bg-slate-100 border-b text-slate-700">
                             <th class="p-3">Pedido</th>
                             <th class="p-3">NF</th>
+                            <th class="p-3">Status</th>
                             <th class="p-3">Chegada</th>
                             <th class="p-3">Fim Faturamento</th>
                             <th class="p-3">Início Separação</th>
@@ -208,7 +227,7 @@
                         </tr>
                     </thead>
                     <tbody id="tabela-dados" class="divide-y text-slate-700">
-                        <tr><td colspan="9" class="p-4 text-center text-slate-400">Carregando dados da planilha...</td></tr>
+                        <tr><td colspan="10" class="p-4 text-center text-slate-400">Carregando dados da planilha...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -217,7 +236,6 @@
     </main>
 
     <script>
-        // URL do Google Apps Script já integrada
         const URL_GOOGLE_SHEETS = "https://script.google.com/macros/s/AKfycbwjSMvlTD4hshW4Q1rQSuTC7fD_2yJ44xghP9mIlQFDmegfwlGIZ6MYnXaNnVMmjvbo/exec";
 
         let atendimentoAtual = {
@@ -233,6 +251,7 @@
 
         let filaFaturados = [];
         let registrosPlanilha = [];
+        let html5QrCode = null;
 
         function solicitarSenhaDashboard() {
             let senha = prompt("Área Restrita. Digite a senha de acesso à planilha:");
@@ -266,6 +285,9 @@
         }
 
         function goHome() {
+            if(html5QrCode) {
+                html5QrCode.stop().catch(err => {});
+            }
             document.getElementById('screen-home').classList.remove('hidden');
             document.getElementById('screen-faturista').classList.add('hidden');
             document.getElementById('screen-operador').classList.add('hidden');
@@ -296,7 +318,7 @@
             }, 100);
         }
 
-        function faturistaConcluirNF() {
+        async function faturistaConcluirNF() {
             let nf = document.getElementById('fat-nf').value.trim();
             if(!nf) {
                 alert('Informe ou escaneie o número da NF!');
@@ -306,9 +328,25 @@
             atendimentoAtual.nf = nf;
             atendimentoAtual.t_fim_fat = new Date().toISOString();
 
-            filaFaturados.push({...atendimentoAtual});
+            // Envia imediatamente para a nuvem o pedido faturado (Aguardando Separação)
+            try {
+                let payload = {
+                    action: "faturar",
+                    ...atendimentoAtual
+                };
 
-            alert('NF registrada com sucesso! Pedido enviado para a expedição.');
+                await fetch(URL_GOOGLE_SHEETS, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                alert('NF registrada com sucesso! Pedido enviado para a fila da expedição.');
+            } catch (e) {
+                console.error(e);
+                alert('Erro ao enviar para a nuvem, mas o registro local foi considerado.');
+            }
             
             atendimentoAtual = { id: '', nf: '', t_inicio: null, t_fim_fat: null, t_inicio_sep: null, t_fim_carga: null, nota_tempo: 3, nota_satisfacao: 3 };
             document.getElementById('fat-step-2').classList.add('hidden');
@@ -319,7 +357,7 @@
             inputPedido.focus();
         }
 
-        // Operador Logístico Ações
+        // Operador Logístico - Sincronização da Fila
         async function sincronizarFilaOperador() {
             let container = document.getElementById('lista-fila-operador');
             container.innerHTML = `<div class="p-3.5 bg-slate-50 border rounded-xl text-center text-xs text-slate-400"><i class="fa-solid fa-spinner fa-spin"></i> Sincronizando com o Google Sheets...</div>`;
@@ -328,12 +366,13 @@
                 let response = await fetch(URL_GOOGLE_SHEETS);
                 let dados = await response.json();
                 
-                filaFaturados = dados.filter(item => !item.t_fim_carga && item.nf);
+                // Filtra apenas os pedidos que estão aguardando separação
+                filaFaturados = dados.filter(item => item.status === "Aguardando Separação" && item.id);
                 
                 renderizarFilaOperador();
             } catch (error) {
                 console.error("Erro ao buscar fila:", error);
-                container.innerHTML = `<div class="p-3.5 bg-red-50 border border-red-200 rounded-xl text-center text-xs text-red-600">Erro ao carregar fila da nuvem. Verifique se publicou o Web App como 'Qualquer um'.</div>`;
+                container.innerHTML = `<div class="p-3.5 bg-red-50 border border-red-200 rounded-xl text-center text-xs text-red-600">Erro ao carregar fila da nuvem. Verifique a conexão.</div>`;
             }
         }
 
@@ -342,16 +381,16 @@
             container.innerHTML = '';
 
             if(filaFaturados.length === 0) {
-                container.innerHTML = `<div class="p-3.5 bg-slate-50 border rounded-xl text-center text-xs text-slate-400">Nenhum pedido faturado aguardando separação no momento.</div>`;
+                container.innerHTML = `<div class="p-3.5 bg-slate-50 border rounded-xl text-center text-xs text-slate-400">Nenhum pedido aguardando separação no momento.</div>`;
                 return;
             }
 
-            filaFaturados.forEach((item, index) => {
+            filaFaturados.forEach((item) => {
                 container.innerHTML += `
                     <div class="flex justify-between items-center p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-xl hover:bg-emerald-100/70 transition shadow-sm">
                         <div>
                             <span class="font-bold text-emerald-950 block text-sm font-mono">Pedido: ${item.id}</span>
-                            <span class="text-xs text-slate-600 font-mono">NF: ${item.nf}</span>
+                            <span class="text-xs text-slate-600 font-mono">NF: ${item.nf || 'Pendente'}</span>
                         </div>
                         <button onclick='selecionarPedidoFila(${JSON.stringify(item)})' class="bg-ifco hover:bg-ifco-dark text-white text-xs font-bold px-3.5 py-2.5 rounded-lg transition shadow-sm">
                             Iniciar Separação <i class="fa-solid fa-arrow-right ml-1"></i>
@@ -361,16 +400,43 @@
             });
         }
 
+        // OPÇÃO A: Abrir Câmera para ler QR Code
+        function abrirLeitorCamera() {
+            let readerDiv = document.getElementById('reader');
+            readerDiv.classList.remove('hidden');
+
+            if(!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                (decodedText) => {
+                    html5QrCode.stop().then(() => {
+                        readerDiv.classList.add('hidden');
+                        document.getElementById('op-input-pedido').value = decodedText;
+                        operadorIniciarSeparacaoManual();
+                    }).catch(err => {});
+                },
+                (errorMessage) => {}
+            ).catch(err => {
+                alert("Erro ao acessar a câmera do celular. Verifique as permissões do navegador.");
+            });
+        }
+
+        // OPÇÃO B & C: Selecionar da fila ou Digitar Manual / QR Lido
         function selecionarPedidoFila(item) {
+            if(html5QrCode) html5QrCode.stop().catch(e => {});
             atendimentoAtual = item;
             atendimentoAtual.t_inicio_sep = new Date().toISOString();
             iniciarPassoDoisOperador();
         }
 
-        function operadorIniciarSeparacao() {
+        function operadorIniciarSeparacaoManual() {
             let pedidoInput = document.getElementById('op-input-pedido').value.trim();
             if(!pedidoInput) {
-                alert('Digite ou selecione um pedido!');
+                alert('Digite, escaneie ou selecione um pedido!');
                 return;
             }
 
@@ -378,8 +444,9 @@
             if(encontrado) {
                 selecionarPedidoFila(encontrado);
             } else {
+                // Caso o operador leia um QR code que ainda não passou pelo faturista
                 atendimentoAtual.id = pedidoInput;
-                atendimentoAtual.nf = "NF-Avulsa";
+                atendimentoAtual.nf = "NF-Manual";
                 atendimentoAtual.t_inicio = new Date().toISOString();
                 atendimentoAtual.t_fim_fat = new Date().toISOString();
                 atendimentoAtual.t_inicio_sep = new Date().toISOString();
@@ -388,6 +455,7 @@
         }
 
         function iniciarPassoDoisOperador() {
+            if(html5QrCode) html5QrCode.stop().catch(e => {});
             document.getElementById('lbl-op-pedido').innerText = atendimentoAtual.id;
             document.getElementById('lbl-op-nf').innerText = atendimentoAtual.nf;
 
@@ -419,7 +487,7 @@
         async function salvarAtendimentoCompleto() {
             try {
                 let payload = {
-                    action: "salvar",
+                    action: "finalizar",
                     ...atendimentoAtual
                 };
 
@@ -430,7 +498,7 @@
                     body: JSON.stringify(payload)
                 });
 
-                alert('Atendimento concluído, avaliado e salvo direto na Planilha Google!');
+                alert('Atendimento concluído, avaliado e salvo na Planilha Google!');
             } catch (e) {
                 console.error(e);
                 alert('Erro ao sincronizar com a planilha, mas o atendimento foi concluído.');
@@ -453,7 +521,7 @@
 
         async function carregarDadosPlanilha() {
             let tbody = document.getElementById('tabela-dados');
-            tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin"></i> Carregando dados da planilha...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="10" class="p-4 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin"></i> Carregando dados da planilha...</td></tr>`;
 
             try {
                 let response = await fetch(URL_GOOGLE_SHEETS);
@@ -462,7 +530,7 @@
                 tbody.innerHTML = '';
 
                 if(registrosPlanilha.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-slate-400">Nenhum atendimento registrado na planilha ainda.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="10" class="p-4 text-center text-slate-400">Nenhum atendimento registrado na planilha ainda.</td></tr>`;
                     return;
                 }
 
@@ -478,10 +546,13 @@
                         tempoTotal = diff + ' min';
                     }
 
+                    let statusBadge = r.status === 'Concluido' ? '<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold text-[10px]">Concluído</span>' : '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold text-[10px]">Aguardando</span>';
+
                     tbody.innerHTML += `
                         <tr class="hover:bg-slate-50">
                             <td class="p-3 font-semibold font-mono">${r.id || '-'}</td>
                             <td class="p-3 font-mono text-emerald-800">${r.nf || '-'}</td>
+                            <td class="p-3">${statusBadge}</td>
                             <td class="p-3 text-slate-500">${t1}</td>
                             <td class="p-3 text-slate-500">${t2}</td>
                             <td class="p-3 text-slate-500">${t3}</td>
@@ -494,26 +565,8 @@
                 });
             } catch (e) {
                 console.error(e);
-                tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-red-500">Erro ao carregar dados da planilha. Verifique a URL ou permissões do Apps Script.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" class="p-4 text-center text-red-500">Erro ao carregar dados da planilha. Verifique a URL ou permissões.</td></tr>`;
             }
-        }
-
-        function exportarCSV() {
-            if(registrosPlanilha.length === 0) {
-                alert('Não há dados carregados para exportar!');
-                return;
-            }
-            let csv = "ID_Pedido,NF,Chegada,Fim_Faturamento,Inicio_Separacao,Fim_Carregamento,Nota_Tempo,Nota_Satisfacao\n";
-            registrosPlanilha.forEach(r => {
-                csv += `"${r.id}","${r.nf}","${r.t_inicio || ''}","${r.t_fim_fat || ''}","${r.t_inicio_sep || ''}","${r.t_fim_carga || ''}",${r.nota_tempo},${r.nota_satisfacao}\n`;
-            });
-
-            let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            let url = URL.createObjectURL(blob);
-            let a = document.createElement('a');
-            a.href = url;
-            a.download = 'dados_atendimento_expedicao_ifco.csv';
-            a.click();
         }
     </script>
 </body>
