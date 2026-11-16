@@ -63,13 +63,31 @@
                 <button onclick="goHome()" class="text-xs bg-slate-200 hover:bg-slate-300 px-3 py-1.5 rounded-lg font-medium transition"><i class="fa-solid fa-arrow-left"></i> Voltar</button>
             </div>
 
-            <!-- Passo A: Novo Atendimento / Pedido -->
-            <div id="fat-step-1" class="bg-white p-5 rounded-2xl shadow-sm space-y-3">
-                <h3 class="font-bold text-ifco text-xs uppercase tracking-wider">1. Chegada do Cliente / Novo Atendimento</h3>
-                <p class="text-xs text-slate-500">O leitor está pronto. Escaneie o QR Code ou digite o número do pedido:</p>
+            <!-- Passo A: Novo Atendimento / Pedido + Itens -->
+            <div id="fat-step-1" class="bg-white p-5 rounded-2xl shadow-sm space-y-4">
                 <div class="space-y-2">
-                    <input type="text" id="fat-pedido" placeholder="Aguardando leitura do QR Code..." class="w-full p-4 text-lg border-2 border-emerald-500 rounded-xl focus:ring-2 focus:ring-emerald-600 outline-none font-mono bg-emerald-50/20">
+                    <h3 class="font-bold text-ifco text-xs uppercase tracking-wider">1. Chegada do Cliente / Novo Atendimento</h3>
+                    <p class="text-xs text-slate-500">O leitor está pronto. Escaneie o QR Code ou digite o número do pedido:</p>
+                    <input type="text" id="fat-pedido" placeholder="Número do pedido..." class="w-full p-4 text-lg border-2 border-emerald-500 rounded-xl focus:ring-2 focus:ring-emerald-600 outline-none font-mono bg-emerald-50/20">
                 </div>
+
+                <!-- Adição Dinâmica de Modelos e Quantidades -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                    <label class="text-xs font-bold text-slate-600 uppercase flex items-center gap-1.5">
+                        <i class="fa-solid fa-box text-ifco"></i> Itens do Pedido (Modelo e Quantidade)
+                    </label>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <input type="text" id="fat-modelo" placeholder="Modelo (ex: 6416)" class="flex-1 p-3 border border-slate-300 rounded-xl focus:border-emerald-500 outline-none font-mono text-sm bg-white">
+                        <input type="number" id="fat-qtd" placeholder="Qtd" min="1" class="w-full sm:w-28 p-3 border border-slate-300 rounded-xl focus:border-emerald-500 outline-none font-mono text-sm bg-white">
+                        <button type="button" onclick="adicionarItemPedido()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-3 rounded-xl transition text-sm shadow-sm flex items-center justify-center gap-1.5 whitespace-nowrap">
+                            <i class="fa-solid fa-plus"></i> Adicionar
+                        </button>
+                    </div>
+
+                    <!-- Lista de itens adicionados -->
+                    <div id="lista-itens-faturista" class="space-y-1.5"></div>
+                </div>
+
                 <button onclick="faturistaIniciar()" class="w-full bg-ifco hover:bg-ifco-dark text-white font-bold p-4 rounded-xl transition text-base shadow-md">
                     Iniciar Atendimento <i class="fa-solid fa-arrow-right ml-1"></i>
                 </button>
@@ -77,8 +95,9 @@
 
             <!-- Passo B: Inserir NF -->
             <div id="fat-step-2" class="hidden bg-white p-5 rounded-2xl shadow-sm space-y-3 border-2 border-emerald-200">
-                <div class="bg-emerald-50 p-3 rounded-lg text-xs text-emerald-900 border border-emerald-200">
-                    Pedido Ativo: <strong id="lbl-fat-pedido" class="text-sm font-mono text-ifco"></strong>
+                <div class="bg-emerald-50 p-3 rounded-lg text-xs text-emerald-900 border border-emerald-200 space-y-1">
+                    <div>Pedido Ativo: <strong id="lbl-fat-pedido" class="text-sm font-mono text-ifco"></strong></div>
+                    <div id="lbl-fat-itens-resumo" class="text-slate-600 font-mono text-[11px]"></div>
                 </div>
                 <h3 class="font-bold text-ifco text-xs uppercase tracking-wider">2. Lançamento da Nota Fiscal</h3>
                 <div class="space-y-2">
@@ -143,12 +162,21 @@
                 </div>
             </div>
 
-            <!-- Passo B: Concluir Carregamento e Tirar Foto -->
-            <div id="op-step-2" class="hidden bg-white p-5 rounded-2xl shadow-sm space-y-3 border-2 border-emerald-200">
+            <!-- Passo B: Romaneio Digital + Concluir Carregamento e Tirar Foto -->
+            <div id="op-step-2" class="hidden bg-white p-5 rounded-2xl shadow-sm space-y-4 border-2 border-emerald-200">
                 <div class="bg-emerald-50 p-3 rounded-xl text-xs text-emerald-900 flex justify-between items-center border border-emerald-200">
                     <span>Separando Pedido: <strong id="lbl-op-pedido" class="text-sm font-mono text-ifco"></strong></span>
                     <span class="font-mono bg-emerald-200 px-2 py-0.5 rounded text-emerald-900">NF: <span id="lbl-op-nf"></span></span>
                 </div>
+
+                <!-- ROMANEIO DIGITAL -->
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
+                    <div class="text-xs font-bold text-slate-600 uppercase flex items-center gap-1.5">
+                        <i class="fa-solid fa-clipboard-list text-ifco"></i> Romaneio Digital (Conferência)
+                    </div>
+                    <div id="op-romaneio-lista" class="space-y-1.5"></div>
+                </div>
+
                 <h3 class="font-bold text-ifco text-xs uppercase tracking-wider">2. Finalizar Carregamento</h3>
                 
                 <div class="space-y-2">
@@ -216,6 +244,7 @@
                         <tr class="bg-slate-100 border-b text-slate-700">
                             <th class="p-3">Pedido</th>
                             <th class="p-3">NF</th>
+                            <th class="p-3">Itens / Romaneio</th>
                             <th class="p-3">Status</th>
                             <th class="p-3">Chegada</th>
                             <th class="p-3">Fim Faturamento</th>
@@ -227,7 +256,7 @@
                         </tr>
                     </thead>
                     <tbody id="tabela-dados" class="divide-y text-slate-700">
-                        <tr><td colspan="10" class="p-4 text-center text-slate-400">Carregando dados da planilha...</td></tr>
+                        <tr><td colspan="11" class="p-4 text-center text-slate-400">Carregando dados da planilha...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -241,6 +270,7 @@
         let atendimentoAtual = {
             id: '',
             nf: '',
+            itens: '',
             t_inicio: null,
             t_fim_fat: null,
             t_inicio_sep: null,
@@ -249,6 +279,7 @@
             nota_satisfacao: 3
         };
 
+        let itensTemporarios = [];
         let filaFaturados = [];
         let registrosPlanilha = [];
         let html5QrCode = null;
@@ -269,6 +300,8 @@
                 document.getElementById('screen-faturista').classList.remove('hidden');
                 document.getElementById('fat-step-1').classList.remove('hidden');
                 document.getElementById('fat-step-2').classList.add('hidden');
+                itensTemporarios = [];
+                renderizarItensFaturista();
                 
                 setTimeout(() => {
                     let input = document.getElementById('fat-pedido');
@@ -296,6 +329,46 @@
             document.getElementById('role-badge').innerText = 'Menu Inicial';
         }
 
+        // Gerenciamento de Itens no Faturista
+        function adicionarItemPedido() {
+            let modeloInput = document.getElementById('fat-modelo');
+            let qtdInput = document.getElementById('fat-qtd');
+            let modelo = modeloInput.value.trim().toUpperCase();
+            let qtd = qtdInput.value.trim();
+
+            if (!modelo || !qtd || parseInt(qtd) <= 0) {
+                alert('Informe o modelo da caixa e uma quantidade válida!');
+                if (!modelo) modeloInput.focus();
+                else qtdInput.focus();
+                return;
+            }
+
+            itensTemporarios.push({ modelo: modelo, qtd: parseInt(qtd) });
+            modeloInput.value = '';
+            qtdInput.value = '';
+            modeloInput.focus();
+            renderizarItensFaturista();
+        }
+
+        function removerItemPedido(index) {
+            itensTemporarios.splice(index, 1);
+            renderizarItensFaturista();
+        }
+
+        function renderizarItensFaturista() {
+            let container = document.getElementById('lista-itens-faturista');
+            if (itensTemporarios.length === 0) {
+                container.innerHTML = `<div class="text-xs text-slate-400 italic py-1">Nenhum item adicionado ainda.</div>`;
+                return;
+            }
+            container.innerHTML = itensTemporarios.map((item, idx) => `
+                <div class="flex justify-between items-center bg-white px-3 py-2 rounded-lg border border-slate-200 text-xs font-mono">
+                    <span><strong class="text-emerald-800">${item.modelo}</strong> — ${item.qtd} un</span>
+                    <button type="button" onclick="removerItemPedido(${idx})" class="text-red-500 hover:text-red-700 px-1.5"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            `).join('');
+        }
+
         // Faturista Ações
         function faturistaIniciar() {
             let pedido = document.getElementById('fat-pedido').value.trim();
@@ -304,10 +377,25 @@
                 document.getElementById('fat-pedido').focus();
                 return;
             }
+
+            // Se o faturista digitou modelo/qtd mas esqueceu de clicar no "+ Adicionar", adiciona automaticamente
+            let modeloPendente = document.getElementById('fat-modelo').value.trim().toUpperCase();
+            let qtdPendente = document.getElementById('fat-qtd').value.trim();
+            if (modeloPendente && qtdPendente && parseInt(qtdPendente) > 0) {
+                itensTemporarios.push({ modelo: modeloPendente, qtd: parseInt(qtdPendente) });
+                document.getElementById('fat-modelo').value = '';
+                document.getElementById('fat-qtd').value = '';
+                renderizarItensFaturista();
+            }
+
+            let itensFormatados = itensTemporarios.map(i => `${i.modelo} (${i.qtd} un)`).join(' | ');
+
             atendimentoAtual.id = pedido;
+            atendimentoAtual.itens = itensFormatados;
             atendimentoAtual.t_inicio = new Date().toISOString();
 
             document.getElementById('lbl-fat-pedido').innerText = pedido;
+            document.getElementById('lbl-fat-itens-resumo').innerText = itensFormatados ? `Itens: ${itensFormatados}` : 'Sem itens discriminados';
             document.getElementById('fat-step-1').classList.add('hidden');
             document.getElementById('fat-step-2').classList.remove('hidden');
             
@@ -328,7 +416,6 @@
             atendimentoAtual.nf = nf;
             atendimentoAtual.t_fim_fat = new Date().toISOString();
 
-            // Envia imediatamente para a nuvem o pedido faturado (Aguardando Separação)
             try {
                 let payload = {
                     action: "faturar",
@@ -348,7 +435,9 @@
                 alert('Erro ao enviar para a nuvem, mas o registro local foi considerado.');
             }
             
-            atendimentoAtual = { id: '', nf: '', t_inicio: null, t_fim_fat: null, t_inicio_sep: null, t_fim_carga: null, nota_tempo: 3, nota_satisfacao: 3 };
+            atendimentoAtual = { id: '', nf: '', itens: '', t_inicio: null, t_fim_fat: null, t_inicio_sep: null, t_fim_carga: null, nota_tempo: 3, nota_satisfacao: 3 };
+            itensTemporarios = [];
+            renderizarItensFaturista();
             document.getElementById('fat-step-2').classList.add('hidden');
             document.getElementById('fat-step-1').classList.remove('hidden');
             
@@ -366,7 +455,6 @@
                 let response = await fetch(URL_GOOGLE_SHEETS);
                 let dados = await response.json();
                 
-                // Filtra apenas os pedidos que estão aguardando separação
                 filaFaturados = dados.filter(item => item.status === "Aguardando Separação" && item.id);
                 
                 renderizarFilaOperador();
@@ -390,9 +478,10 @@
                     <div class="flex justify-between items-center p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-xl hover:bg-emerald-100/70 transition shadow-sm">
                         <div>
                             <span class="font-bold text-emerald-950 block text-sm font-mono">Pedido: ${item.id}</span>
-                            <span class="text-xs text-slate-600 font-mono">NF: ${item.nf || 'Pendente'}</span>
+                            <span class="text-xs text-slate-600 font-mono block">NF: ${item.nf || 'Pendente'}</span>
+                            ${item.itens ? `<span class="text-[11px] text-emerald-800 font-mono mt-0.5 block">${item.itens}</span>` : ''}
                         </div>
-                        <button onclick='selecionarPedidoFila(${JSON.stringify(item)})' class="bg-ifco hover:bg-ifco-dark text-white text-xs font-bold px-3.5 py-2.5 rounded-lg transition shadow-sm">
+                        <button onclick='selecionarPedidoFila(${JSON.stringify(item)})' class="bg-ifco hover:bg-ifco-dark text-white text-xs font-bold px-3.5 py-2.5 rounded-lg transition shadow-sm shrink-0">
                             Iniciar Separação <i class="fa-solid fa-arrow-right ml-1"></i>
                         </button>
                     </div>
@@ -440,13 +529,13 @@
                 return;
             }
 
-            let encontrado = filaFaturados.find(i => i.id === pedidoInput);
+            let encontrado = filaFaturados.find(i => i.id == pedidoInput);
             if(encontrado) {
                 selecionarPedidoFila(encontrado);
             } else {
-                // Caso o operador leia um QR code que ainda não passou pelo faturista
                 atendimentoAtual.id = pedidoInput;
                 atendimentoAtual.nf = "NF-Manual";
+                atendimentoAtual.itens = "";
                 atendimentoAtual.t_inicio = new Date().toISOString();
                 atendimentoAtual.t_fim_fat = new Date().toISOString();
                 atendimentoAtual.t_inicio_sep = new Date().toISOString();
@@ -458,6 +547,20 @@
             if(html5QrCode) html5QrCode.stop().catch(e => {});
             document.getElementById('lbl-op-pedido').innerText = atendimentoAtual.id;
             document.getElementById('lbl-op-nf').innerText = atendimentoAtual.nf;
+
+            // Renderiza o Romaneio Digital
+            let romaneioContainer = document.getElementById('op-romaneio-lista');
+            if (atendimentoAtual.itens && atendimentoAtual.itens.trim() !== '') {
+                let linhas = atendimentoAtual.itens.split('|').map(s => s.trim());
+                romaneioContainer.innerHTML = linhas.map(linha => `
+                    <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-200 text-xs font-mono text-slate-800">
+                        <i class="fa-solid fa-box-open text-ifco"></i>
+                        <span class="font-bold">${linha}</span>
+                    </div>
+                `).join('');
+            } else {
+                romaneioContainer.innerHTML = `<div class="text-xs text-slate-400 italic">Nenhum modelo/quantidade informado no faturamento.</div>`;
+            }
 
             document.getElementById('op-step-1').classList.add('hidden');
             document.getElementById('op-step-2').classList.remove('hidden');
@@ -504,7 +607,7 @@
                 alert('Erro ao sincronizar com a planilha, mas o atendimento foi concluído.');
             }
             
-            atendimentoAtual = { id: '', nf: '', t_inicio: null, t_fim_fat: null, t_inicio_sep: null, t_fim_carga: null, nota_tempo: 3, nota_satisfacao: 3 };
+            atendimentoAtual = { id: '', nf: '', itens: '', t_inicio: null, t_fim_fat: null, t_inicio_sep: null, t_fim_carga: null, nota_tempo: 3, nota_satisfacao: 3 };
             document.getElementById('op-input-pedido').value = '';
             
             goHome();
@@ -521,7 +624,7 @@
 
         async function carregarDadosPlanilha() {
             let tbody = document.getElementById('tabela-dados');
-            tbody.innerHTML = `<tr><td colspan="10" class="p-4 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin"></i> Carregando dados da planilha...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="11" class="p-4 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin"></i> Carregando dados da planilha...</td></tr>`;
 
             try {
                 let response = await fetch(URL_GOOGLE_SHEETS);
@@ -530,7 +633,7 @@
                 tbody.innerHTML = '';
 
                 if(registrosPlanilha.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="10" class="p-4 text-center text-slate-400">Nenhum atendimento registrado na planilha ainda.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="11" class="p-4 text-center text-slate-400">Nenhum atendimento registrado na planilha ainda.</td></tr>`;
                     return;
                 }
 
@@ -552,6 +655,7 @@
                         <tr class="hover:bg-slate-50">
                             <td class="p-3 font-semibold font-mono">${r.id || '-'}</td>
                             <td class="p-3 font-mono text-emerald-800">${r.nf || '-'}</td>
+                            <td class="p-3 font-mono text-xs text-slate-600">${r.itens || '-'}</td>
                             <td class="p-3">${statusBadge}</td>
                             <td class="p-3 text-slate-500">${t1}</td>
                             <td class="p-3 text-slate-500">${t2}</td>
@@ -565,7 +669,7 @@
                 });
             } catch (e) {
                 console.error(e);
-                tbody.innerHTML = `<tr><td colspan="10" class="p-4 text-center text-red-500">Erro ao carregar dados da planilha. Verifique a URL ou permissões.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="11" class="p-4 text-center text-red-500">Erro ao carregar dados da planilha. Verifique a URL ou permissões.</td></tr>`;
             }
         }
     </script>
